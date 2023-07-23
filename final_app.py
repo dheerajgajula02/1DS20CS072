@@ -3,6 +3,7 @@ from fastapi import FastAPI, File, UploadFile
 import os, requests, sys, socket
 import credentials
 import json
+from datetime import datetime, timedelta
 
 def token_generation():
     url = "http://20.244.56.144/train/register"
@@ -16,6 +17,16 @@ def token_generation():
     new_data = json.dumps(data, indent=4)
     req = requests.post(url, data = new_data)
     return req.json()
+
+
+def get_departure_datetime(train):
+    hours = train["departureTime"]["Hours"]
+    minutes = train["departureTime"]["Minutes"]
+    return datetime(datetime.now().year, datetime.now().month, datetime.now().day, hours, minutes)
+
+def get_departure_timestamp(train):
+    departure_datetime = get_departure_datetime(train)
+    return int(departure_datetime.timestamp())
 
 def auths():
     url="http://20.244.56.144/train/auth"
@@ -55,7 +66,27 @@ def get_train_schedule():
     response = requests.get(API_URL, headers=headers)
     json_resp = response.json()
     print(json_resp[0])
-    return response.json()
+
+    current_time = datetime.now()
+
+    twelve_hours_later = current_time + timedelta(hours=12)
+    filtered_trains = [train for train in json_resp if current_time <= get_departure_datetime(train) <= twelve_hours_later]
+
+    # Sort the trains based on the specified criteria (price, tickets, and departure time)
+    sorted_trains = sorted(filtered_trains, key=lambda train: (train["price"]["sleeper"], -train["seatsAvailable"]["sleeper"], -get_departure_timestamp(train)))
+
+    # Build the response with train details
+    response_data = {
+        "trains": sorted_trains
+    }
+    print(response_data)
+    
+
+    return response_data
+
+
+    #return response.json()
+
 
 
 
